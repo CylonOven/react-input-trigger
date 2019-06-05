@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { render } from 'react-dom';
+import TextField from '@material-ui/core/TextField';
 
 import InputHandler from '../index';
 
@@ -9,12 +10,14 @@ class App extends Component {
 
     this.state = {
       isTriggered: false,
+      ref: React.createRef(),
     };
   }
 
   render() {
     return (
       <div>
+        <button onClick={() => this.setState({ yolo: true })}>FORCE ME</button>
         <h2>
           {`Is Triggered: ${this.state.isTriggered}`}<br />
           {
@@ -49,7 +52,11 @@ class App extends Component {
           onCancel={(obj) => { this.setState({ isTriggered: false, obj }); }}
           endTrigger={(endHandler) => { this.endHandler = endHandler; }}
         >
-          <textarea placeholder="Type @ to trigger!" />
+          {
+            (refSetter) => (
+              <TextField inputRef={refSetter} />
+            )
+          }
         </InputHandler>
 
         {
