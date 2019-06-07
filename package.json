@@ -25,7 +25,6 @@
     "build"
   ],
   "pre-commit": [
-    "lint:no-fix",
     "success"
   ],
   "devDependencies": {
