@@ -3,13 +3,21 @@ import PropTypes from 'prop-types';
 import getCaretCoordinates from 'textarea-caret';
 
 function getHookObject(type, element, startPoint) {
-  const caret = getCaretCoordinates(element, element.selectionEnd);
+  const { quill } = element;
+  let caret;
+  let selection;
+  if (quill) {
+    selection = quill.getSelection();
+    caret = quill.getBounds(selection);
+  } else {
+    caret = getCaretCoordinates(element, element.selectionEnd);
+  }
 
   const result = {
     hookType: type,
     cursor: {
-      selectionStart: element.selectionStart,
-      selectionEnd: element.selectionEnd,
+      selectionStart: quill ? selection.index : element.selectionStart,
+      selectionEnd: quill ? selection.index + selection.length : element.selectionEnd,
       top: caret.top,
       left: caret.left,
       height: caret.height,
@@ -20,7 +28,10 @@ function getHookObject(type, element, startPoint) {
     return result;
   }
 
-  result.text = element.value.substr(startPoint, element.selectionStart);
+  result.text = quill ?
+    quill.getText(startPoint, selection.index - startPoint)
+    :
+    element.value.substr(startPoint, element.selectionStart);
 
   return result;
 }
@@ -57,8 +68,11 @@ class InputTrigger extends Component {
       metaKey,
       ctrlKey,
     } = event;
-
-    const { selectionStart } = event.target;
+    const { quill } = this.element;
+    const selectionStart = quill ?
+      quill.getSelection().index
+      :
+      event.target.selectionStart;
     const { triggered, triggerStartPosition } = this.state;
 
     if (!triggered) {
@@ -94,7 +108,7 @@ class InputTrigger extends Component {
 
       setTimeout(() => {
         onType(getHookObject('typing', this.element, triggerStartPosition));
-      }, 0);
+      }, quill ? 5 : 0);
     }
 
     return null;
@@ -171,10 +185,14 @@ InputTrigger.defaultProps = {
     ctrlKey: false,
     metaKey: false,
   },
-  onStart: () => {},
-  onCancel: () => {},
-  onType: () => {},
-  endTrigger: () => {},
+  onStart: () => {
+  },
+  onCancel: () => {
+  },
+  onType: () => {
+  },
+  endTrigger: () => {
+  },
   elementRef: null,
 };
 
