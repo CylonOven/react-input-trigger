@@ -36,11 +36,35 @@ class InputTrigger extends Component {
 
     this.handleTrigger = this.handleTrigger.bind(this);
     this.resetState = this.resetState.bind(this);
-    this.element = this.props.elementRef;
+    this.findInput = this.findInput.bind(this);
   }
+
 
   componentDidMount() {
     this.props.endTrigger(this.resetState);
+    this.element = this.findInput();
+  }
+
+  findInput() {
+    if (this.props.getElement) {
+      return this.props.getElement(this);
+    }
+    if (this.childElemnt instanceof Element && ['INPUT', 'TEXTAREA'].find(tag => tag === this.childElemnt.tagName)) {
+      return this.childElemnt;
+    }
+    if (this.childElemnt.quill) {
+      return this.childElemnt;
+    }
+    const inputs = Array.prototype.concat.call(
+      this.div.getElementsByTagName('input'),
+      this.div.getElementsByTagName('textarea'),
+    );
+    if (inputs.length) {
+      return inputs[0];
+    }
+    return null;
+    // Would like to warn, but lint disallowed console logs.
+    // console.warn('Multiple or no inputs detected', inputs);
   }
 
   handleTrigger(event) {
@@ -109,7 +133,7 @@ class InputTrigger extends Component {
 
   render() {
     const {
-      elementRef,
+      getElement,
       children,
       trigger,
       onStart,
@@ -124,15 +148,18 @@ class InputTrigger extends Component {
         role="textbox"
         tabIndex={-1}
         onKeyDown={this.handleTrigger}
+        ref={(el) => {
+          this.div = el;
+        }}
         {...rest}
       >
         {
-          !elementRef
+          !getElement
             ? (
               React.Children.map(this.props.children, child => (
                 React.cloneElement(child, {
                   ref: (element) => {
-                    this.element = element;
+                    this.childElemnt = element;
                     if (typeof child.ref === 'function') {
                       child.ref(element);
                     }
@@ -161,7 +188,7 @@ InputTrigger.propTypes = {
   onType: PropTypes.func,
   endTrigger: PropTypes.func,
   children: PropTypes.element.isRequired,
-  elementRef: PropTypes.element,
+  getElement: PropTypes.func,
 };
 
 InputTrigger.defaultProps = {
@@ -175,7 +202,7 @@ InputTrigger.defaultProps = {
   onCancel: () => {},
   onType: () => {},
   endTrigger: () => {},
-  elementRef: null,
+  getElement: undefined,
 };
 
 export default InputTrigger;
