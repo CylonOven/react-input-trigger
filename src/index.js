@@ -45,6 +45,7 @@ class InputTrigger extends Component {
     this.props.endTrigger(this.resetState);
     this.element = this.findInput();
     console.log("componentDidMount");
+    //
   }
 
   findInput() {
