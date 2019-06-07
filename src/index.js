@@ -68,50 +68,55 @@ class InputTrigger extends Component {
       metaKey,
       ctrlKey,
     } = event;
-    const { quill } = this.element;
-    const selectionStart = quill ?
-      quill.getSelection().index
-      :
-      event.target.selectionStart;
-    const { triggered, triggerStartPosition } = this.state;
+    setTimeout(() => {
 
-    if (!triggered) {
-      if (
-        which === trigger.keyCode &&
-        shiftKey === !!trigger.shiftKey &&
-        ctrlKey === !!trigger.ctrlKey &&
-        metaKey === !!trigger.metaKey
-      ) {
-        this.setState({
-          triggered: true,
-          triggerStartPosition: selectionStart + 1,
-        }, () => {
-          setTimeout(() => {
-            onStart(getHookObject('start', this.element));
-          }, 0);
-        });
-        return null;
+      const {quill} = this.element;
+      const selectionStart = quill ?
+        quill.getSelection().index
+        :
+        event.target.selectionStart;
+      const {triggered, triggerStartPosition} = this.state;
+
+      if (!triggered) {
+        if (
+          which === trigger.keyCode &&
+          shiftKey === !!trigger.shiftKey &&
+          ctrlKey === !!trigger.ctrlKey &&
+          metaKey === !!trigger.metaKey
+        ) {
+          this.setState({
+            triggered: true,
+            triggerStartPosition: selectionStart + 1,
+          }, () => {
+            setTimeout(() => {
+              onStart(getHookObject('start', this.element));
+            }, 0);
+          });
+          return null;
+        }
+      } else {
+        console.log(selectionStart, triggerStartPosition, quill.getSelection());
+        if (which === 8 && selectionStart <= triggerStartPosition) {
+          this.setState({
+            triggered: false,
+            triggerStartPosition: null,
+          }, () => {
+            setTimeout(() => {
+              onCancel(getHookObject('cancel', this.element));
+            }, 0);
+          });
+
+          return null;
+        }
+
+        setTimeout(() => {
+          onType(getHookObject('typing', this.element, triggerStartPosition));
+        }, 0);
       }
-    } else {
-      if (which === 8 && selectionStart <= triggerStartPosition) {
-        this.setState({
-          triggered: false,
-          triggerStartPosition: null,
-        }, () => {
-          setTimeout(() => {
-            onCancel(getHookObject('cancel', this.element));
-          }, 0);
-        });
 
-        return null;
-      }
-
-      setTimeout(() => {
-        onType(getHookObject('typing', this.element, triggerStartPosition));
-      }, quill ? 5 : 0);
-    }
-
-    return null;
+      return null;
+    }, 1);
+    return null
   }
 
   resetState() {
