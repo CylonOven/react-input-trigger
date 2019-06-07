@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import getCaretCoordinates from 'textarea-caret';
 
+
 function getHookObject(type, element, startPoint) {
   const caret = getCaretCoordinates(element, element.selectionEnd);
 
@@ -43,6 +44,7 @@ class InputTrigger extends Component {
   componentDidMount() {
     this.props.endTrigger(this.resetState);
     this.element = this.findInput();
+    console.log("componentDidMount");
   }
 
   findInput() {
@@ -52,18 +54,15 @@ class InputTrigger extends Component {
     if (this.childElemnt instanceof Element && ['INPUT', 'TEXTAREA'].find(tag => tag === this.childElemnt.tagName)) {
       return this.childElemnt;
     }
-    if (this.childElemnt.quill) {
-      return this.childElemnt;
-    }
-    const inputs = Array.prototype.concat.call(
-      this.div.getElementsByTagName('input'),
-      this.div.getElementsByTagName('textarea'),
-    );
+    const inputs = this.div.getElementsByTagName('input');
     if (inputs.length) {
       return inputs[0];
     }
-    return null;
-    // Would like to warn, but lint disallowed console logs.
+    const textareas = this.div.getElementsByTagName('textarea');
+    if (textareas.length) {
+      return textareas[0];
+    }
+    return null;// Would like to warn, but lint disallowed console logs.
     // console.warn('Multiple or no inputs detected', inputs);
   }
 
