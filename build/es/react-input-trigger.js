@@ -77,6 +77,7 @@ var InputTrigger = function (_Component) {
     value: function componentDidMount() {
       this.props.endTrigger(this.resetState);
       this.element = this.findInput();
+      console.log("componentDidMount");
     }
   }, {
     key: 'findInput',
@@ -91,12 +92,15 @@ var InputTrigger = function (_Component) {
       })) {
         return this.childElemnt;
       }
-      var inputs = Array.prototype.concat.call(this.div.getElementsByTagName('input'), this.div.getElementsByTagName('textarea'));
+      var inputs = this.div.getElementsByTagName('input');
       if (inputs.length) {
         return inputs[0];
       }
-      return null;
-      // Would like to warn, but lint disallowed console logs.
+      var textareas = this.div.getElementsByTagName('textarea');
+      if (textareas.length) {
+        return textareas[0];
+      }
+      return null; // Would like to warn, but lint disallowed console logs.
       // console.warn('Multiple or no inputs detected', inputs);
     }
   }, {
