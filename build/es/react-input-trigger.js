@@ -53,12 +53,15 @@ function getHookObject(type, element, startPoint) {
     }
   };
 
-  if (!startPoint) {
+  if (startPoint === undefined) {
     return result;
+  } else {
+    result.startPoint = startPoint;
   }
 
-  result.text = quill ? quill.getText(startPoint, selection.index - startPoint) : element.value.substr(startPoint, element.selectionStart);
-
+  if (startPoint !== result.cursor.selectionStart) {
+    result.text = quill ? quill.getText(startPoint, selection.index - startPoint) : element.value.substr(startPoint, result.cursor.selectionStart);
+  }
   return result;
 }
 
@@ -77,7 +80,7 @@ var InputTrigger = function (_Component) {
 
     _this.handleTrigger = _this.handleTrigger.bind(_this);
     _this.resetState = _this.resetState.bind(_this);
-    _this.element = _this.props.elementRef;
+    _this.findInput = _this.findInput.bind(_this);
     return _this;
   }
 
@@ -85,58 +88,87 @@ var InputTrigger = function (_Component) {
     key: 'componentDidMount',
     value: function componentDidMount() {
       this.props.endTrigger(this.resetState);
+      this.element = this.findInput();
+    }
+  }, {
+    key: 'findInput',
+    value: function findInput() {
+      var _this2 = this;
+
+      if (this.props.getElement) {
+        return this.props.getElement(this);
+      }
+      if (this.childElemnt instanceof Element && ['INPUT', 'TEXTAREA'].find(function (tag) {
+        return tag === _this2.childElemnt.tagName;
+      })) {
+        return this.childElemnt;
+      }
+      var inputs = this.div.getElementsByTagName('input');
+      if (inputs.length) {
+        return inputs[0];
+      }
+      var textareas = this.div.getElementsByTagName('textarea');
+      if (textareas.length) {
+        return textareas[0];
+      }
+      return null; // Would like to warn, but lint disallowed console logs.
+      // console.warn('Multiple or no inputs detected', inputs);
     }
   }, {
     key: 'handleTrigger',
     value: function handleTrigger(event) {
-      var _this2 = this;
+      var _this3 = this;
 
       var _props = this.props,
           trigger = _props.trigger,
           onStart = _props.onStart,
           onCancel = _props.onCancel,
           onType = _props.onType;
-      var which = event.which,
+      var key = event.key,
           shiftKey = event.shiftKey,
           metaKey = event.metaKey,
           ctrlKey = event.ctrlKey;
+
+      event.persist();
+
       var quill = this.element.quill;
 
-      var selectionStart = quill ? quill.getSelection().index : event.target.selectionStart;
+      var selectionStart = quill ? quill.getSelection().index + 1 : event.target.selectionStart;
       var _state = this.state,
           triggered = _state.triggered,
           triggerStartPosition = _state.triggerStartPosition;
 
 
       if (!triggered) {
-        if (which === trigger.keyCode && shiftKey === !!trigger.shiftKey && ctrlKey === !!trigger.ctrlKey && metaKey === !!trigger.metaKey) {
+        if (key === trigger.key && ctrlKey === !!trigger.ctrlKey && metaKey === !!trigger.metaKey) {
           this.setState({
             triggered: true,
-            triggerStartPosition: selectionStart + 1
+            triggerStartPosition: selectionStart
           }, function () {
             setTimeout(function () {
-              onStart(getHookObject('start', _this2.element));
-            }, 0);
+              onStart(getHookObject('start', _this3.element, selectionStart));
+            }, 5);
           });
           return null;
         }
       } else {
-        if (which === 8 && selectionStart <= triggerStartPosition) {
+        console.log(selectionStart, triggerStartPosition, quill.getSelection());
+        if ((key === "Backspace" || key === "Delete") && selectionStart < triggerStartPosition) {
           this.setState({
             triggered: false,
             triggerStartPosition: null
           }, function () {
             setTimeout(function () {
-              onCancel(getHookObject('cancel', _this2.element));
-            }, 0);
+              onCancel(getHookObject('cancel', _this3.element));
+            }, 5);
           });
 
           return null;
         }
-
-        setTimeout(function () {
-          onType(getHookObject('typing', _this2.element, triggerStartPosition));
-        }, quill ? 5 : 0);
+        clearTimeout(this.onTypeTimout);
+        this.onTypeTimout = setTimeout(function () {
+          onType(getHookObject('typing', _this3.element, triggerStartPosition));
+        }, 5);
       }
 
       return null;
@@ -152,29 +184,32 @@ var InputTrigger = function (_Component) {
   }, {
     key: 'render',
     value: function render() {
-      var _this3 = this;
+      var _this4 = this;
 
       var _props2 = this.props,
-          elementRef = _props2.elementRef,
+          getElement = _props2.getElement,
           children = _props2.children,
           trigger = _props2.trigger,
           onStart = _props2.onStart,
           onCancel = _props2.onCancel,
           onType = _props2.onType,
           endTrigger = _props2.endTrigger,
-          rest = _objectWithoutProperties(_props2, ['elementRef', 'children', 'trigger', 'onStart', 'onCancel', 'onType', 'endTrigger']);
+          rest = _objectWithoutProperties(_props2, ['getElement', 'children', 'trigger', 'onStart', 'onCancel', 'onType', 'endTrigger']);
 
       return _react2.default.createElement(
         'div',
         _extends({
-          role: 'textbox',
-          tabIndex: -1,
-          onKeyDown: this.handleTrigger
+          // role="textbox"
+          // tabIndex={-1}
+          onKeyDown: this.handleTrigger,
+          ref: function ref(el) {
+            _this4.div = el;
+          }
         }, rest),
-        !elementRef ? _react2.default.Children.map(this.props.children, function (child) {
+        !getElement ? _react2.default.Children.map(this.props.children, function (child) {
           return _react2.default.cloneElement(child, {
             ref: function ref(element) {
-              _this3.element = element;
+              _this4.childElemnt = element;
               if (typeof child.ref === 'function') {
                 child.ref(element);
               }
@@ -190,7 +225,7 @@ var InputTrigger = function (_Component) {
 
 InputTrigger.propTypes = {
   trigger: _propTypes2.default.shape({
-    keyCode: _propTypes2.default.number,
+    key: _propTypes2.default.string,
     shiftKey: _propTypes2.default.bool,
     ctrlKey: _propTypes2.default.bool,
     metaKey: _propTypes2.default.bool
@@ -200,12 +235,12 @@ InputTrigger.propTypes = {
   onType: _propTypes2.default.func,
   endTrigger: _propTypes2.default.func,
   children: _propTypes2.default.element.isRequired,
-  elementRef: _propTypes2.default.element
+  getElement: _propTypes2.default.func
 };
 
 InputTrigger.defaultProps = {
   trigger: {
-    keyCode: null,
+    key: null,
     shiftKey: false,
     ctrlKey: false,
     metaKey: false
@@ -214,7 +249,7 @@ InputTrigger.defaultProps = {
   onCancel: function onCancel() {},
   onType: function onType() {},
   endTrigger: function endTrigger() {},
-  elementRef: null
+  getElement: undefined
 };
 
 exports.default = InputTrigger;
