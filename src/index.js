@@ -1,9 +1,9 @@
-import React, { Component } from 'react';
+import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import getCaretCoordinates from 'textarea-caret';
 
 function getHookObject(type, element, startPoint) {
-  const { quill } = element;
+  const {quill} = element;
   let caret;
   let selection;
   if (quill) {
@@ -24,15 +24,19 @@ function getHookObject(type, element, startPoint) {
     },
   };
 
-  if (!startPoint) {
+  if (startPoint === undefined) {
     return result;
   }
+  else {
+    result.startPoint = startPoint;
+  }
 
-  result.text = quill ?
-    quill.getText(startPoint, selection.index - startPoint)
-    :
-    element.value.substr(startPoint, element.selectionStart);
-
+  if (startPoint !== result.cursor.selectionStart) {
+    result.text = quill ?
+      quill.getText(startPoint, selection.index - startPoint)
+      :
+      element.value.substr(startPoint, result.cursor.selectionStart);
+  }
   return result;
 }
 
@@ -47,11 +51,32 @@ class InputTrigger extends Component {
 
     this.handleTrigger = this.handleTrigger.bind(this);
     this.resetState = this.resetState.bind(this);
-    this.element = this.props.elementRef;
+    this.findInput = this.findInput.bind(this);
   }
+
 
   componentDidMount() {
     this.props.endTrigger(this.resetState);
+    this.element = this.findInput();
+  }
+
+  findInput() {
+    if (this.props.getElement) {
+      return this.props.getElement(this);
+    }
+    if (this.childElemnt instanceof Element && ['INPUT', 'TEXTAREA'].find(tag => tag === this.childElemnt.tagName)) {
+      return this.childElemnt;
+    }
+    const inputs = this.div.getElementsByTagName('input');
+    if (inputs.length) {
+      return inputs[0];
+    }
+    const textareas = this.div.getElementsByTagName('textarea');
+    if (textareas.length) {
+      return textareas[0];
+    }
+    return null;// Would like to warn, but lint disallowed console logs.
+    // console.warn('Multiple or no inputs detected', inputs);
   }
 
   handleTrigger(event) {
@@ -63,55 +88,57 @@ class InputTrigger extends Component {
     } = this.props;
 
     const {
-      which,
+      key,
       shiftKey,
       metaKey,
       ctrlKey,
     } = event;
-    const { quill } = this.element;
+    event.persist();
+
+    const {quill} = this.element;
     const selectionStart = quill ?
-      quill.getSelection().index
+      quill.getSelection().index +1
       :
       event.target.selectionStart;
-    const { triggered, triggerStartPosition } = this.state;
+    const {triggered, triggerStartPosition} = this.state;
 
     if (!triggered) {
       if (
-        which === trigger.keyCode &&
-        shiftKey === !!trigger.shiftKey &&
+        key === trigger.key &&
         ctrlKey === !!trigger.ctrlKey &&
         metaKey === !!trigger.metaKey
       ) {
         this.setState({
           triggered: true,
-          triggerStartPosition: selectionStart + 1,
+          triggerStartPosition: selectionStart,
         }, () => {
           setTimeout(() => {
-            onStart(getHookObject('start', this.element));
-          }, 0);
+            onStart(getHookObject('start', this.element, selectionStart));
+          }, 5);
         });
         return null;
       }
     } else {
-      if (which === 8 && selectionStart <= triggerStartPosition) {
+      console.log(selectionStart, triggerStartPosition, quill.getSelection());
+      if ((key === "Backspace" || key === "Delete") && selectionStart < triggerStartPosition) {
         this.setState({
           triggered: false,
           triggerStartPosition: null,
         }, () => {
           setTimeout(() => {
             onCancel(getHookObject('cancel', this.element));
-          }, 0);
+          }, 5);
         });
 
-        return null;
+          return null;
+        }
+        clearTimeout(this.onTypeTimout);
+        this.onTypeTimout = setTimeout(() => {
+          onType(getHookObject('typing', this.element, triggerStartPosition));
+        }, 5);
       }
 
-      setTimeout(() => {
-        onType(getHookObject('typing', this.element, triggerStartPosition));
-      }, quill ? 5 : 0);
-    }
-
-    return null;
+    return null
   }
 
   resetState() {
@@ -123,7 +150,7 @@ class InputTrigger extends Component {
 
   render() {
     const {
-      elementRef,
+      getElement,
       children,
       trigger,
       onStart,
@@ -135,18 +162,21 @@ class InputTrigger extends Component {
 
     return (
       <div
-        role="textbox"
-        tabIndex={-1}
+        // role="textbox"
+        // tabIndex={-1}
         onKeyDown={this.handleTrigger}
+        ref={(el) => {
+          this.div = el;
+        }}
         {...rest}
       >
         {
-          !elementRef
+          !getElement
             ? (
               React.Children.map(this.props.children, child => (
                 React.cloneElement(child, {
                   ref: (element) => {
-                    this.element = element;
+                    this.childElemnt = element;
                     if (typeof child.ref === 'function') {
                       child.ref(element);
                     }
@@ -165,7 +195,7 @@ class InputTrigger extends Component {
 
 InputTrigger.propTypes = {
   trigger: PropTypes.shape({
-    keyCode: PropTypes.number,
+    key: PropTypes.string,
     shiftKey: PropTypes.bool,
     ctrlKey: PropTypes.bool,
     metaKey: PropTypes.bool,
@@ -175,12 +205,12 @@ InputTrigger.propTypes = {
   onType: PropTypes.func,
   endTrigger: PropTypes.func,
   children: PropTypes.element.isRequired,
-  elementRef: PropTypes.element,
+  getElement: PropTypes.func,
 };
 
 InputTrigger.defaultProps = {
   trigger: {
-    keyCode: null,
+    key: null,
     shiftKey: false,
     ctrlKey: false,
     metaKey: false,
@@ -193,7 +223,7 @@ InputTrigger.defaultProps = {
   },
   endTrigger: () => {
   },
-  elementRef: null,
+  getElement: undefined,
 };
 
 export default InputTrigger;
