@@ -165,7 +165,6 @@ var InputTrigger = function (_Component) {
           return null;
         }
       } else {
-        console.log(selectionStart, triggerStartPosition, quill.getSelection());
         if ((key === "Backspace" || key === "Delete") && selectionStart <= triggerStartPosition) {
           this.setState({
             triggered: false,
