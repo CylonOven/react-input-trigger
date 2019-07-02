@@ -4,9 +4,9 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 var _react = require('react');
 
@@ -30,7 +30,8 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-function getHookObject(type, element, startPoint) {
+function getHookObject(type, element, startPoint, hookArgs) {
+  if (hookArgs === undefined) hookArgs = {};
   var quill = element.quill;
 
   var caret = void 0;
@@ -42,7 +43,7 @@ function getHookObject(type, element, startPoint) {
     caret = (0, _textareaCaret2.default)(element, element.selectionEnd);
   }
 
-  var result = {
+  var result = _extends({
     hookType: type,
     cursor: {
       selectionStart: quill ? selection.index : element.selectionStart,
@@ -51,7 +52,7 @@ function getHookObject(type, element, startPoint) {
       left: caret.left,
       height: caret.height
     }
-  };
+  }, hookArgs);
 
   if (startPoint === undefined) {
     return result;
@@ -75,7 +76,8 @@ var InputTrigger = function (_Component) {
 
     _this.state = {
       triggered: false,
-      triggerStartPosition: null
+      triggerStartPosition: null,
+      triggeredKey: null
     };
 
     _this.handleTrigger = _this.handleTrigger.bind(_this);
@@ -139,14 +141,25 @@ var InputTrigger = function (_Component) {
           triggerStartPosition = _state.triggerStartPosition;
 
 
+      if (this.reset) {
+        {
+          triggered = false;
+          triggerStartPosition = null;
+        }
+      }
+
       if (!triggered) {
-        if (key === trigger.key && ctrlKey === !!trigger.ctrlKey && metaKey === !!trigger.metaKey) {
+        var triggeredKey = trigger.keys.find(function (triggerKey) {
+          return key === triggerKey;
+        });
+        if (triggeredKey && ctrlKey === !!trigger.ctrlKey && metaKey === !!trigger.metaKey) {
           this.setState({
             triggered: true,
+            triggeredKey: triggeredKey,
             triggerStartPosition: selectionStart
           }, function () {
             setTimeout(function () {
-              onStart(getHookObject('start', _this3.element, selectionStart));
+              onStart(getHookObject('start', _this3.element, selectionStart, { triggeredKey: triggeredKey }));
             }, 5);
           });
           return null;
@@ -156,7 +169,8 @@ var InputTrigger = function (_Component) {
         if ((key === "Backspace" || key === "Delete") && selectionStart <= triggerStartPosition) {
           this.setState({
             triggered: false,
-            triggerStartPosition: null
+            triggerStartPosition: null,
+            triggeredKey: null
           }, function () {
             setTimeout(function () {
               onCancel(getHookObject('cancel', _this3.element));
@@ -167,7 +181,7 @@ var InputTrigger = function (_Component) {
         }
         clearTimeout(this.onTypeTimout);
         this.onTypeTimout = setTimeout(function () {
-          onType(getHookObject('typing', _this3.element, triggerStartPosition));
+          onType(getHookObject('typing', _this3.element, triggerStartPosition, { triggeredKey: _this3.state.triggeredKey }));
         }, 5);
       }
 
@@ -176,15 +190,22 @@ var InputTrigger = function (_Component) {
   }, {
     key: 'resetState',
     value: function resetState() {
+      var _this4 = this;
+
       this.setState({
         triggered: false,
-        triggerStartPosition: null
+        triggerStartPosition: null,
+        triggeredKey: null
       });
+      this.reset = true;
+      setTimeout(function () {
+        return _this4.reset = false;
+      }, 5);
     }
   }, {
     key: 'render',
     value: function render() {
-      var _this4 = this;
+      var _this5 = this;
 
       var _props2 = this.props,
           getElement = _props2.getElement,
@@ -201,15 +222,15 @@ var InputTrigger = function (_Component) {
         _extends({
           // role="textbox"
           // tabIndex={-1}
-          onKeyDown: this.handleTrigger,
+          onKeyDownCapture: this.handleTrigger,
           ref: function ref(el) {
-            _this4.div = el;
+            _this5.div = el;
           }
         }, rest),
         !getElement ? _react2.default.Children.map(this.props.children, function (child) {
           return _react2.default.cloneElement(child, {
             ref: function ref(element) {
-              _this4.childElemnt = element;
+              _this5.childElemnt = element;
               if (typeof child.ref === 'function') {
                 child.ref(element);
               }
@@ -225,7 +246,7 @@ var InputTrigger = function (_Component) {
 
 InputTrigger.propTypes = {
   trigger: _propTypes2.default.shape({
-    key: _propTypes2.default.string,
+    keys: _propTypes2.default.array,
     shiftKey: _propTypes2.default.bool,
     ctrlKey: _propTypes2.default.bool,
     metaKey: _propTypes2.default.bool
@@ -240,7 +261,7 @@ InputTrigger.propTypes = {
 
 InputTrigger.defaultProps = {
   trigger: {
-    key: null,
+    keys: [],
     shiftKey: false,
     ctrlKey: false,
     metaKey: false
