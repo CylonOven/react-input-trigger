@@ -2,7 +2,8 @@ import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import getCaretCoordinates from 'textarea-caret';
 
-function getHookObject(type, element, startPoint) {
+function getHookObject(type, element, startPoint, hookArgs) {
+  if (hookArgs === undefined) hookArgs = {};
   const {quill} = element;
   let caret;
   let selection;
@@ -22,7 +23,7 @@ function getHookObject(type, element, startPoint) {
       left: caret.left,
       height: caret.height,
     },
-  };
+    ...hookArgs};
 
   if (startPoint === undefined) {
     return result;
@@ -47,6 +48,7 @@ class InputTrigger extends Component {
     this.state = {
       triggered: false,
       triggerStartPosition: null,
+      triggeredKey: null,
     };
 
     this.handleTrigger = this.handleTrigger.bind(this);
@@ -80,14 +82,14 @@ class InputTrigger extends Component {
   }
 
   handleTrigger(event) {
-    const {
+    let {
       trigger,
       onStart,
       onCancel,
       onType,
     } = this.props;
 
-    const {
+    let {
       key,
       shiftKey,
       metaKey,
@@ -95,25 +97,33 @@ class InputTrigger extends Component {
     } = event;
     event.persist();
 
-    const {quill} = this.element;
-    const selectionStart = quill ?
+    let {quill} = this.element;
+    let selectionStart = quill ?
       quill.getSelection().index +1
       :
       event.target.selectionStart;
-    const {triggered, triggerStartPosition} = this.state;
+    let {triggered, triggerStartPosition} = this.state;
+
+    if (this.reset){
+      {triggered = false;
+      triggerStartPosition = null;
+      }
+    }
 
     if (!triggered) {
+      let triggeredKey = trigger.keys.find((triggerKey) => key === triggerKey);
       if (
-        key === trigger.key &&
+        triggeredKey &&
         ctrlKey === !!trigger.ctrlKey &&
         metaKey === !!trigger.metaKey
       ) {
         this.setState({
           triggered: true,
+          triggeredKey: triggeredKey,
           triggerStartPosition: selectionStart,
         }, () => {
           setTimeout(() => {
-            onStart(getHookObject('start', this.element, selectionStart));
+            onStart(getHookObject('start', this.element, selectionStart, {triggeredKey: triggeredKey}));
           }, 5);
         });
         return null;
@@ -124,6 +134,7 @@ class InputTrigger extends Component {
         this.setState({
           triggered: false,
           triggerStartPosition: null,
+          triggeredKey: null,
         }, () => {
           setTimeout(() => {
             onCancel(getHookObject('cancel', this.element));
@@ -134,7 +145,7 @@ class InputTrigger extends Component {
         }
         clearTimeout(this.onTypeTimout);
         this.onTypeTimout = setTimeout(() => {
-          onType(getHookObject('typing', this.element, triggerStartPosition));
+          onType(getHookObject('typing', this.element, triggerStartPosition, {triggeredKey: this.state.triggeredKey}));
         }, 5);
       }
 
@@ -145,7 +156,10 @@ class InputTrigger extends Component {
     this.setState({
       triggered: false,
       triggerStartPosition: null,
+      triggeredKey: null,
     });
+    this.reset = true;
+    setTimeout(() => this.reset=false, 5)
   }
 
   render() {
@@ -164,7 +178,7 @@ class InputTrigger extends Component {
       <div
         // role="textbox"
         // tabIndex={-1}
-        onKeyDown={this.handleTrigger}
+        onKeyDownCapture={this.handleTrigger}
         ref={(el) => {
           this.div = el;
         }}
@@ -195,7 +209,7 @@ class InputTrigger extends Component {
 
 InputTrigger.propTypes = {
   trigger: PropTypes.shape({
-    key: PropTypes.string,
+    keys: PropTypes.array,
     shiftKey: PropTypes.bool,
     ctrlKey: PropTypes.bool,
     metaKey: PropTypes.bool,
@@ -210,7 +224,7 @@ InputTrigger.propTypes = {
 
 InputTrigger.defaultProps = {
   trigger: {
-    key: null,
+    keys: [],
     shiftKey: false,
     ctrlKey: false,
     metaKey: false,
